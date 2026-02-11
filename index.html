@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shadowing Pro (All-in-One)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                        darkBg: '#0f172a',
+                        darkSurface: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                        serif: ['Georgia', 'Cambria', "Times New Roman", 'Times', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <style>
+        /* Custom Styles */
+        body { overscroll-behavior: none; } 
+        
+        .blur-reveal { transition: all 0.3s ease; }
+        .blurred-text { filter: blur(6px) !important; opacity: 0.4; user-select: none; color: transparent; text-shadow: 0 0 8px rgba(0,0,0,0.5); }
+        .dark .blurred-text { text-shadow: 0 0 8px rgba(255,255,255,0.5); }
+        .blurred-text:hover { opacity: 0.6; }
+        .revealed .blurred-text { filter: none !important; opacity: 1; user-select: text; color: inherit; text-shadow: none; }
+        
+        /* Hint Mode */
+        .hint-sentence { margin-right: 4px; display: inline; line-height: 1.8; }
+        .hint-word { font-weight: 700; color: #4f46e5; display: inline-block; border-bottom: 2px solid transparent; }
+        .dark .hint-word { color: #818cf8; }
+        .hint-rest { transition: filter 0.3s ease, opacity 0.3s ease; filter: blur(5px); opacity: 0.3; display: inline; }
+        .revealed .hint-rest { filter: none; opacity: 1; }
+
+        /* Diff Styling */
+        .diff-ins { background-color: #dcfce7; color: #166534; padding: 2px 0; border-radius: 2px; text-decoration: none; border-bottom: 2px solid #22c55e; }
+        .diff-del { background-color: #fee2e2; color: #ef4444; padding: 2px 0; border-radius: 2px; text-decoration: line-through; opacity: 0.7; }
+        .dark .diff-ins { background-color: #064e3b; color: #86efac; border-bottom: 2px solid #4ade80; }
+        .dark .diff-del { background-color: #450a0a; color: #fca5a5; }
+
+        /* AI Analysis Styling */
+        .markdown-body h3 { font-size: 1.1em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; color: #4f46e5; }
+        .dark .markdown-body h3 { color: #818cf8; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+        .markdown-body strong { color: #be185d; }
+        .dark .markdown-body strong { color: #f472b6; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-800 dark:bg-darkBg dark:text-slate-200 transition-colors duration-300 h-[100dvh] flex flex-col overflow-hidden">
+
+    <nav class="w-full bg-white dark:bg-darkSurface border-b dark:border-slate-700 px-4 py-3 flex justify-between items-center shadow-sm z-20 flex-none h-16">
+        <div class="flex items-center gap-3 cursor-pointer group" onclick="resetApp()" title="Back to Home">
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-600 truncate group-hover:opacity-80 transition-opacity">
+                <i class="fa-solid fa-feather-pointed mr-2 text-blue-500"></i>Shadowing Pro
+            </h1>
+        </div>
+        
+        <div class="flex items-center gap-2 md:gap-3">
+            <div class="hidden md:flex items-center gap-2 bg-gray-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-sm font-mono border border-transparent dark:border-slate-700">
+                <span id="time-val" class="w-12 text-center">00:00</span>
+                <button onclick="toggleTimer()" class="hover:text-indigo-500 transition-colors"><i id="timer-icon" class="fa-solid fa-play"></i></button>
+                <button onclick="resetTimer()" class="hover:text-red-500 transition-colors"><i class="fa-solid fa-rotate-left"></i></button>
+            </div>
+
+            <button onclick="toggleModal('donate-modal')" class="w-9 h-9 flex items-center justify-center rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors" title="Buy me a coffee">
+                <i class="fa-solid fa-mug-hot"></i>
+            </button>
+
+            <button onclick="toggleModal('settings-modal')" class="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors" title="Settings">
+                <i class="fa-solid fa-sliders"></i>
+            </button>
+
+            <button onclick="toggleTheme()" class="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors" title="Toggle Theme">
+                <i id="theme-icon" class="fa-regular fa-lightbulb text-lg"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-1 relative overflow-hidden flex flex-col">
+        
+        <div id="setup-view" class="absolute inset-0 z-10 bg-gray-50 dark:bg-darkBg flex flex-col p-4 md:p-8 transition-transform duration-300">
+            <div class="max-w-4xl mx-auto w-full h-full flex flex-col">
+                <div class="text-center mb-6 flex-none">
+                    <h2 class="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2">粘贴原文，开始训练</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">Paste your text below to start shadowing practice</p>
+                </div>
+
+                <div class="flex-1 min-h-0 relative bg-white dark:bg-darkSurface rounded-2xl shadow-xl border dark:border-slate-700 flex flex-col overflow-hidden group">
+                     <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+                     <textarea id="setup-input" 
+                        class="flex-1 w-full p-6 bg-transparent border-none focus:ring-0 text-lg md:text-xl leading-relaxed resize-none dark:text-white placeholder-slate-300 dark:placeholder-slate-600 font-serif" 
+                        placeholder="在此粘贴外语文章..."></textarea>
+                     <div class="flex-none p-4 bg-gray-50 dark:bg-slate-800/50 border-t dark:border-slate-700 flex justify-between items-center">
+                        <button onclick="pasteFromClipboard()" class="text-indigo-600 dark:text-indigo-400 text-sm font-medium hover:text-indigo-800 flex items-center gap-2">
+                            <i class="fa-regular fa-clipboard"></i> 粘贴剪贴板
+                        </button>
+                        <span class="text-xs text-slate-400">支持自动分段</span>
+                     </div>
+                </div>
+
+                <div class="flex-none pt-8 flex flex-col sm:flex-row justify-center gap-4">
+                    <button onclick="startPractice('standard')" class="group relative px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all hover:-translate-y-1 w-full sm:w-auto">
+                        <div class="flex items-center justify-center gap-3">
+                            <i class="fa-solid fa-eye-slash text-lg"></i>
+                            <div class="text-left">
+                                <div class="font-bold text-base">标准模式</div>
+                                <div class="text-xs opacity-80 font-normal">全段遮盖，点击查看</div>
+                            </div>
+                        </div>
+                    </button>
+                    <button onclick="startPractice('hint')" class="group relative px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all hover:-translate-y-1 w-full sm:w-auto">
+                        <div class="flex items-center justify-center gap-3">
+                            <i class="fa-solid fa-highlighter text-lg"></i>
+                            <div class="text-left">
+                                <div class="font-bold text-base">提示模式</div>
+                                <div class="text-xs opacity-80 font-normal">首词可见，其余模糊</div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="practice-view" class="hidden absolute inset-0 bg-white dark:bg-darkSurface flex-col md:flex-row divide-y md:divide-y-0 md:divide-x dark:divide-slate-700">
+            <div class="flex-1 flex flex-col min-h-0 md:w-1/2 bg-gray-50 dark:bg-slate-900/30">
+                <div class="flex-none h-12 px-4 border-b dark:border-slate-700 flex justify-between items-center bg-white dark:bg-darkSurface">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <i class="fa-solid fa-book-open"></i> 原文
+                    </span>
+                    <div class="flex gap-2">
+                        <button onclick="toggleAllBlur(true)" class="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">全遮</button>
+                        <button onclick="toggleAllBlur(false)" class="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">全显</button>
+                    </div>
+                </div>
+                <div id="source-container" class="flex-1 overflow-y-auto p-5 space-y-6 scroll-smooth pb-20"></div>
+            </div>
+
+            <div class="flex-1 flex flex-col min-h-0 md:w-1/2 relative bg-white dark:bg-darkBg">
+                <div class="flex-none h-12 px-4 border-b dark:border-slate-700 flex justify-between items-center bg-white dark:bg-darkSurface">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <i class="fa-solid fa-pen-nib"></i> 你的写作
+                    </span>
+                    <div class="text-xs font-mono text-slate-400 flex gap-3">
+                        <span id="char-count">0 Chars</span>
+                        <span class="text-slate-200 dark:text-slate-700">|</span>
+                        <span id="word-count">0 Words</span>
+                    </div>
+                </div>
+                <div class="flex-1 relative group">
+                    <textarea id="user-input" 
+                        class="w-full h-full p-6 md:p-8 bg-transparent border-none resize-none focus:ring-0 text-lg font-serif leading-8 text-slate-800 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-700/50 outline-none" 
+                        placeholder="在此处默写..." spellcheck="false"></textarea>
+                    <div id="diff-layer" class="absolute inset-0 z-10 bg-white/95 dark:bg-darkBg/95 p-6 md:p-8 overflow-y-auto hidden font-serif text-lg leading-8 markdown-body"></div>
+                </div>
+                <div class="flex-none p-3 border-t dark:border-slate-700 bg-white dark:bg-darkSurface flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                    <div class="md:hidden flex items-center text-xs font-mono text-slate-500" id="mobile-timer">00:00</div>
+                    <div class="flex gap-2 ml-auto w-full md:w-auto">
+                        <button id="btn-analyze" onclick="analyzeWithAI()" class="flex-1 md:flex-none px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transition-all flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span class="hidden sm:inline">AI 点评</span>
+                        </button>
+                        <button id="btn-check" onclick="toggleDiff()" class="flex-[2] md:flex-none px-6 py-2 bg-slate-700 dark:bg-slate-600 text-white rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-slate-500 shadow-md transition-all flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-check-double"></i> <span>校对 (Check)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-200 opacity-0">
+        <div class="bg-white dark:bg-darkSurface w-full max-w-md rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200">
+            <div class="px-6 py-4 border-b dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800">
+                <h3 class="font-bold text-slate-800 dark:text-white">API 设置</h3>
+                <button onclick="toggleModal('settings-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-times"></i></button>
+            </div>
+            
+            <div class="p-6 space-y-5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">选择 AI 服务商</label>
+                    <select id="ai-provider" onchange="toggleProviderSettings()" class="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all dark:text-white text-sm">
+                        <option value="gemini">Google Gemini</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="perplexity">Perplexity</option>
+                        <option value="claude">Anthropic Claude</option>
+                    </select>
+                </div>
+
+                <div id="settings-gemini" class="provider-settings space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Gemini Key</label>
+                        <input type="password" id="gemini-key" class="w-full px-4 py-2 bg-gray-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm font-mono outline-none focus:border-indigo-500" placeholder="AIza...">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Model</label>
+                        <select id="gemini-model" class="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm">
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="settings-deepseek" class="provider-settings space-y-3 hidden">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">DeepSeek Key</label>
+                        <input type="password" id="deepseek-key" class="w-full px-4 py-2 bg-gray-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm font-mono outline-none focus:border-indigo-500" placeholder="sk-...">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Model</label>
+                        <select id="deepseek-model" class="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm">
+                            <option value="deepseek-chat">DeepSeek V3 (Chat)</option>
+                            <option value="deepseek-reasoner">DeepSeek R1 (Reasoner)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="settings-openai" class="provider-settings space-y-3 hidden">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">OpenAI Key</label>
+                        <input type="password" id="openai-key" class="w-full px-4 py-2 bg-gray-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm font-mono outline-none focus:border-indigo-500" placeholder="sk-...">
+                        <p class="text-[10px] text-orange-500 mt-1">注意：OpenAI 官方 API 通常不支持直接从浏览器调用 (CORS)。您可能需要浏览器插件或使用本地代理。</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Model</label>
+                        <select id="openai-model" class="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm">
+                            <option value="gpt-4o">GPT-4o</option>
+                            <option value="gpt-4o-mini">GPT-4o Mini</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="settings-perplexity" class="provider-settings space-y-3 hidden">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Perplexity Key</label>
+                        <input type="password" id="perplexity-key" class="w-full px-4 py-2 bg-gray-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm font-mono outline-none focus:border-indigo-500" placeholder="pplx-...">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Model</label>
+                        <select id="perplexity-model" class="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm">
+                            <option value="sonar-pro">Sonar Pro</option>
+                            <option value="sonar">Sonar</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="settings-claude" class="provider-settings space-y-3 hidden">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Anthropic Key</label>
+                        <input type="password" id="claude-key" class="w-full px-4 py-2 bg-gray-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm font-mono outline-none focus:border-indigo-500" placeholder="sk-ant-...">
+                        <p class="text-[10px] text-orange-500 mt-1">警告：Anthropic API 不支持浏览器直接调用 (CORS Error)。必须使用反向代理或浏览器插件。</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Model</label>
+                        <select id="claude-model" class="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg dark:text-white text-sm">
+                            <option value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet</option>
+                            <option value="claude-3-5-haiku-latest">Claude 3.5 Haiku</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t dark:border-slate-700">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">计时器模式</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="flex items-center p-2 border dark:border-slate-700 rounded cursor-pointer">
+                            <input type="radio" name="timer-mode" value="up" class="text-indigo-600" checked> <span class="ml-2 text-xs dark:text-slate-300">正计时</span>
+                        </label>
+                        <label class="flex items-center p-2 border dark:border-slate-700 rounded cursor-pointer">
+                            <input type="radio" name="timer-mode" value="down" class="text-indigo-600"> <span class="ml-2 text-xs dark:text-slate-300">倒计时</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-gray-50 dark:bg-slate-800 flex justify-end">
+                <button onclick="saveSettings()" class="px-6 py-2 bg-slate-900 dark:bg-indigo-600 text-white rounded-lg hover:opacity-90 transition-opacity font-medium">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="donate-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-200 opacity-0">
+        <div class="bg-white dark:bg-darkSurface w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200">
+            <div class="px-6 py-4 border-b dark:border-slate-700 flex justify-between items-center bg-amber-50 dark:bg-amber-900/10">
+                <h3 class="font-bold text-amber-600 dark:text-amber-500 flex items-center gap-2"><i class="fa-solid fa-mug-hot"></i> 这是一个免费工具</h3>
+                <button onclick="toggleModal('donate-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-times"></i></button>
+            </div>
+            
+            <div class="p-6 text-center">
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">如果这个小工具对您的学习有帮助，<br>欢迎请我喝杯咖啡 ☕️</p>
+                
+                <div class="flex justify-center mb-6 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg inline-flex">
+                    <button onclick="switchPay('wechat')" id="tab-wechat" class="px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-slate-700 text-emerald-600 shadow-sm">WeChat</button>
+                    <button onclick="switchPay('alipay')" id="tab-alipay" class="px-4 py-1.5 rounded-md text-sm font-medium transition-all text-slate-500 hover:text-blue-500">Alipay</button>
+                </div>
+
+                <div class="w-48 h-48 mx-auto bg-slate-200 dark:bg-slate-800 rounded-xl flex items-center justify-center overflow-hidden relative">
+                    <img id="qr-image" src="" alt="Payment QR" class="w-full h-full object-cover">
+                    
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-50">
+                        <span class="text-xs text-slate-500 bg-white/80 px-2 py-1 rounded">请替换代码中的 Base64 图片</span>
+                    </div>
+                </div>
+                
+                <p id="pay-tip" class="text-xs text-slate-400 mt-4">打开微信扫一扫</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            text: '',
+            segments: [],
+            mode: 'standard', 
+            timer: { id: null, start: null, running: false, type: 'up' },
+            // Donation Base64 Images (Paste your strings here!)
+            donation: {
+                wechat: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", // Replace with WeChat QR Base64
+                alipay: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="  // Replace with Alipay QR Base64
+            },
+            settings: { 
+                provider: localStorage.getItem('shadow_provider') || 'gemini',
+                // Keys
+                geminiKey: localStorage.getItem('shadow_gemini') || '',
+                deepseekKey: localStorage.getItem('shadow_deepseek') || '',
+                openaiKey: localStorage.getItem('shadow_openai') || '',
+                perplexityKey: localStorage.getItem('shadow_perplexity') || '',
+                claudeKey: localStorage.getItem('shadow_claude') || '',
+                // Models
+                geminiModel: localStorage.getItem('shadow_gemini_model') || 'gemini-2.5-flash',
+                deepseekModel: localStorage.getItem('shadow_deepseek_model') || 'deepseek-chat',
+                openaiModel: localStorage.getItem('shadow_openai_model') || 'gpt-4o',
+                perplexityModel: localStorage.getItem('shadow_perplexity_model') || 'sonar-pro',
+                claudeModel: localStorage.getItem('shadow_claude_model') || 'claude-3-5-sonnet-latest',
+                
+                timerType: localStorage.getItem('shadow_timer_type') || 'up'
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon').className = 'fa-solid fa-lightbulb text-lg';
+            }
+            
+            // Fill settings inputs
+            document.getElementById('ai-provider').value = state.settings.provider;
+            document.getElementById('gemini-key').value = state.settings.geminiKey;
+            document.getElementById('deepseek-key').value = state.settings.deepseekKey;
+            document.getElementById('openai-key').value = state.settings.openaiKey;
+            document.getElementById('perplexity-key').value = state.settings.perplexityKey;
+            document.getElementById('claude-key').value = state.settings.claudeKey;
+
+            // Models (Ensure default if not set)
+            if(state.settings.geminiModel) document.getElementById('gemini-model').value = state.settings.geminiModel;
+            if(state.settings.deepseekModel) document.getElementById('deepseek-model').value = state.settings.deepseekModel;
+            if(state.settings.openaiModel) document.getElementById('openai-model').value = state.settings.openaiModel;
+            if(state.settings.perplexityModel) document.getElementById('perplexity-model').value = state.settings.perplexityModel;
+            if(state.settings.claudeModel) document.getElementById('claude-model').value = state.settings.claudeModel;
+
+            document.querySelector(`input[name="timer-mode"][value="${state.settings.timerType}"]`).checked = true;
+            
+            // Set default donation image
+            document.getElementById('qr-image').src = state.donation.wechat;
+
+            // Initial UI state
+            toggleProviderSettings();
+            state.timer.type = state.settings.timerType;
+
+            document.getElementById('user-input').addEventListener('input', updateStats);
+        });
+
+        // --- Donation Logic ---
+        function switchPay(type) {
+            const tip = document.getElementById('pay-tip');
+            const tabWechat = document.getElementById('tab-wechat');
+            const tabAlipay = document.getElementById('tab-alipay');
+            const qrImg = document.getElementById('qr-image');
+
+            if (type === 'wechat') {
+                tabWechat.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-slate-700 text-emerald-600 shadow-sm";
+                tabAlipay.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all text-slate-500 hover:text-blue-500";
+                tip.innerText = "打开微信扫一扫";
+                qrImg.src = state.donation.wechat; 
+            } else {
+                tabAlipay.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-slate-700 text-blue-600 shadow-sm";
+                tabWechat.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all text-slate-500 hover:text-emerald-500";
+                tip.innerText = "打开支付宝扫一扫";
+                qrImg.src = state.donation.alipay;
+            }
+        }
+
+        // --- Settings Logic ---
+        function toggleProviderSettings() {
+            const provider = document.getElementById('ai-provider').value;
+            // Hide all first
+            document.querySelectorAll('.provider-settings').forEach(el => el.classList.add('hidden'));
+            // Show selected
+            document.getElementById(`settings-${provider}`).classList.remove('hidden');
+        }
+
+        function saveSettings() {
+            const s = state.settings;
+            s.provider = document.getElementById('ai-provider').value;
+            s.geminiKey = document.getElementById('gemini-key').value;
+            s.deepseekKey = document.getElementById('deepseek-key').value;
+            s.openaiKey = document.getElementById('openai-key').value;
+            s.perplexityKey = document.getElementById('perplexity-key').value;
+            s.claudeKey = document.getElementById('claude-key').value;
+            
+            s.geminiModel = document.getElementById('gemini-model').value;
+            s.deepseekModel = document.getElementById('deepseek-model').value;
+            s.openaiModel = document.getElementById('openai-model').value;
+            s.perplexityModel = document.getElementById('perplexity-model').value;
+            s.claudeModel = document.getElementById('claude-model').value;
+
+            s.timerType = document.querySelector('input[name="timer-mode"]:checked').value;
+            
+            // Save to LocalStorage
+            localStorage.setItem('shadow_provider', s.provider);
+            localStorage.setItem('shadow_gemini', s.geminiKey);
+            localStorage.setItem('shadow_deepseek', s.deepseekKey);
+            localStorage.setItem('shadow_openai', s.openaiKey);
+            localStorage.setItem('shadow_perplexity', s.perplexityKey);
+            localStorage.setItem('shadow_claude', s.claudeKey);
+            
+            localStorage.setItem('shadow_gemini_model', s.geminiModel);
+            localStorage.setItem('shadow_deepseek_model', s.deepseekModel);
+            localStorage.setItem('shadow_openai_model', s.openaiModel);
+            localStorage.setItem('shadow_perplexity_model', s.perplexityModel);
+            localStorage.setItem('shadow_claude_model', s.claudeModel);
+            
+            localStorage.setItem('shadow_timer_type', s.timerType);
+            
+            state.timer.type = s.timerType;
+            toggleModal('settings-modal');
+            resetTimer();
+        }
+
+        // --- Navigation & Core Logic ---
+        function resetApp() {
+            if (document.getElementById('user-input').value.trim().length > 0) {
+                if(!confirm("确定要返回主页吗？当前的写作进度将会丢失。")) return;
+            }
+            resetTimer();
+            document.getElementById('user-input').value = '';
+            document.getElementById('diff-layer').classList.add('hidden');
+            document.getElementById('diff-layer').innerHTML = '';
+            updateStats();
+            document.getElementById('setup-view').classList.remove('hidden', '-translate-y-full');
+            setTimeout(() => {
+                document.getElementById('practice-view').classList.remove('flex');
+                document.getElementById('practice-view').classList.add('hidden');
+            }, 300);
+        }
+
+        function startPractice(mode) {
+            const rawText = document.getElementById('setup-input').value.trim();
+            if (!rawText) return alert('请先输入需要练习的内容！');
+
+            state.text = rawText;
+            state.mode = mode;
+            state.segments = rawText.split(/\n+/).filter(s => s.trim().length > 0);
+            const container = document.getElementById('source-container');
+            container.innerHTML = '';
+            
+            state.segments.forEach((seg, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-darkSurface p-5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm transition-all hover:shadow-md cursor-pointer group";
+                card.dataset.idx = idx;
+                const header = `<div class="flex justify-between mb-2"><span class="text-xs font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded">#${idx + 1}</span><i class="fa-solid fa-eye-slash text-slate-300 text-xs status-icon"></i></div>`;
+                const contentHtml = mode === 'standard' 
+                    ? `<div class="text-lg leading-relaxed font-serif text-slate-800 dark:text-slate-200 blurred-text blur-reveal">${seg}</div>`
+                    : `<div class="text-lg leading-relaxed font-serif text-slate-800 dark:text-slate-200 blur-reveal">${parseAndFormatSentences(seg)}</div>`;
+                card.innerHTML = header + contentHtml;
+                
+                card.addEventListener('click', () => {
+                    const icon = card.querySelector('.status-icon');
+                    const textContent = card.querySelector('.blur-reveal');
+                    if (card.classList.contains('revealed')) {
+                        card.classList.remove('revealed');
+                        icon.classList.replace('fa-eye', 'fa-eye-slash');
+                        if (state.mode === 'standard') textContent.classList.add('blurred-text');
+                    } else {
+                        card.classList.add('revealed');
+                        icon.classList.replace('fa-eye-slash', 'fa-eye');
+                        if (state.mode === 'standard') textContent.classList.remove('blurred-text');
+                    }
+                });
+                container.appendChild(card);
+            });
+
+            document.getElementById('setup-view').classList.add('-translate-y-full');
+            document.getElementById('practice-view').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('practice-view').classList.add('flex');
+                document.getElementById('setup-view').classList.add('hidden');
+            }, 300);
+            document.getElementById('user-input').focus();
+            if (state.timer.type === 'up') toggleTimer();
+        }
+
+        // --- Unified AI Analysis Logic ---
+        async function analyzeWithAI() {
+            const userContent = document.getElementById('user-input').value;
+            if(!userContent) return alert("请先写点内容");
+            
+            const btn = document.getElementById('btn-analyze');
+            const originalBtn = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analyzing...`;
+
+            try {
+                let markdownResult = "";
+                const provider = state.settings.provider;
+                
+                if (provider === 'gemini') {
+                    markdownResult = await callGeminiAPI(userContent);
+                } else if (provider === 'claude') {
+                    markdownResult = await callClaudeAPI(userContent);
+                } else {
+                    // OpenAI Compatible (DeepSeek, OpenAI, Perplexity)
+                    markdownResult = await callOpenAICompatibleAPI(userContent, provider);
+                }
+
+                // Render Result
+                const diffLayer = document.getElementById('diff-layer');
+                diffLayer.innerHTML = `<div class="max-w-prose mx-auto pt-4 markdown-body">${marked.parse(markdownResult)}</div>`;
+                diffLayer.classList.remove('hidden');
+                
+                const checkBtn = document.getElementById('btn-check');
+                checkBtn.classList.remove('bg-slate-700', 'dark:bg-slate-600');
+                checkBtn.classList.add('bg-amber-500');
+                checkBtn.innerHTML = `<i class="fa-solid fa-pen"></i> <span>返回编辑</span>`;
+
+            } catch (e) {
+                alert(`API 请求失败 (${state.settings.provider}): ${e.message}\n提示: 如果使用 OpenAI/Claude 且遇到 Network Error，可能是浏览器 CORS 限制，请使用插件或本地代理。`);
+                console.error(e);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalBtn;
+            }
+        }
+
+        async function callGeminiAPI(userContent) {
+            const key = state.settings.geminiKey;
+            const model = state.settings.geminiModel;
+            if (!key) throw new Error("未配置 Gemini API Key");
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+            const prompt = constructPrompt(state.text, userContent);
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+            if (!data.candidates || !data.candidates[0].content) throw new Error("No content generated");
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        async function callClaudeAPI(userContent) {
+            const key = state.settings.claudeKey;
+            const model = state.settings.claudeModel;
+            if (!key) throw new Error("未配置 Anthropic API Key");
+
+            const url = "https://api.anthropic.com/v1/messages";
+            const prompt = constructPrompt(state.text, userContent);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'x-api-key': key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                    'dangerously-allow-browser': 'true' // Some proxies handle this
+                },
+                body: JSON.stringify({
+                    model: model,
+                    max_tokens: 2048,
+                    messages: [{ role: "user", content: prompt }]
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+            return data.content[0].text;
+        }
+
+        async function callOpenAICompatibleAPI(userContent, provider) {
+            let key, model, url;
+            const prompt = constructPrompt(state.text, userContent);
+
+            if (provider === 'deepseek') {
+                key = state.settings.deepseekKey;
+                model = state.settings.deepseekModel;
+                url = "https://api.deepseek.com/chat/completions";
+            } else if (provider === 'openai') {
+                key = state.settings.openaiKey;
+                model = state.settings.openaiModel;
+                url = "https://api.openai.com/v1/chat/completions";
+            } else if (provider === 'perplexity') {
+                key = state.settings.perplexityKey;
+                model = state.settings.perplexityModel;
+                url = "https://api.perplexity.ai/chat/completions";
+            }
+
+            if (!key) throw new Error(`未配置 ${provider} API Key`);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${key}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [
+                        { role: "system", content: "You are a helpful language tutor." },
+                        { role: "user", content: prompt }
+                    ],
+                    stream: false
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+            return data.choices[0].message.content;
+        }
+
+        function constructPrompt(original, student) {
+            return `
+            Task: Compare student's shadowing writing with original text.
+            Original: "${original}"
+            Student: "${student}"
+            
+            Please provide a structured analysis in Markdown:
+            1. **Score**: (0-100)
+            2. **Key Corrections**: List top 3 mistakes (Grammar/Vocab). Show [Wrong] -> [Right] and Explain why.
+            3. **Style Polish**: Pick one sentence that is grammatically correct but could be more native-like.
+            `;
+        }
+
+        // --- Helper Functions ---
+        function parseAndFormatSentences(text) {
+            const isCJK = /[\u3000-\u303f\u4e00-\u9faf\uff00-\uffef]/.test(text);
+            if (!isCJK) {
+                const sentences = text.match( /[^.!?\r\n]+[.!?]+["']?|[^.!?\r\n]+$/g );
+                if (!sentences) return `<span class="hint-word">${text.split(' ')[0]}</span><span class="hint-rest">${text.substring(text.split(' ')[0].length)}</span>`;
+                return sentences.map(s => {
+                    const trimmed = s.trimStart();
+                    const leadingSpace = s.length - trimmed.length > 0 ? ' ' : '';
+                    const words = trimmed.split(/\s+/);
+                    if (words.length < 2) return s; 
+                    const firstWord = words[0];
+                    const rest = trimmed.substring(firstWord.length);
+                    return `${leadingSpace}<div class="hint-sentence"><span class="hint-word">${firstWord}</span><span class="hint-rest">${rest}</span></div>`;
+                }).join(' ');
+            } else {
+                let html = '';
+                let buffer = '';
+                for (let i = 0; i < text.length; i++) {
+                    buffer += text[i];
+                    if (['。', '！', '？', '!', '?', '\n'].includes(text[i]) || i === text.length - 1) {
+                        if (buffer.length > 3) {
+                            const firstTwo = buffer.substring(0, 2); 
+                            const rest = buffer.substring(2);
+                            html += `<div class="hint-sentence"><span class="hint-word">${firstTwo}</span><span class="hint-rest">${rest}</span></div>`;
+                        } else {
+                            html += buffer;
+                        }
+                        buffer = '';
+                    }
+                }
+                return html;
+            }
+        }
+
+        function toggleAllBlur(blur) {
+            document.querySelectorAll('#source-container > div').forEach(card => {
+                const icon = card.querySelector('.status-icon');
+                const textContent = card.querySelector('.blur-reveal');
+                if (blur) {
+                    card.classList.remove('revealed');
+                    icon.classList.replace('fa-eye', 'fa-eye-slash');
+                    if (state.mode === 'standard') textContent.classList.add('blurred-text');
+                } else {
+                    card.classList.add('revealed');
+                    icon.classList.replace('fa-eye-slash', 'fa-eye');
+                    if (state.mode === 'standard') textContent.classList.remove('blurred-text');
+                }
+            });
+        }
+
+        function toggleDiff() {
+            const diffLayer = document.getElementById('diff-layer');
+            const btn = document.getElementById('btn-check');
+            if (!diffLayer.classList.contains('hidden')) {
+                diffLayer.classList.add('hidden');
+                btn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                btn.classList.add('bg-slate-700', 'hover:bg-slate-800', 'dark:bg-slate-600');
+                btn.innerHTML = `<i class="fa-solid fa-check-double"></i> <span>校对 (Check)</span>`;
+                return;
+            }
+            const dmp = new diff_match_patch();
+            const diffs = dmp.diff_main(document.getElementById('user-input').value, state.text);
+            dmp.diff_cleanupSemantic(diffs);
+            let html = diffs.map(part => {
+                const type = part[0]; 
+                const str = part[1].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                if (type === 0) return `<span>${str}</span>`;
+                if (type === 1) return `<span class="diff-ins">${str}</span>`; 
+                if (type === -1) return `<span class="diff-del">${str}</span>`; 
+            }).join('');
+            diffLayer.innerHTML = html;
+            diffLayer.classList.remove('hidden');
+            btn.classList.remove('bg-slate-700', 'hover:bg-slate-800', 'dark:bg-slate-600');
+            btn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+            btn.innerHTML = `<i class="fa-solid fa-pen"></i> <span>继续编辑</span>`;
+        }
+
+        function updateStats() {
+            const val = document.getElementById('user-input').value;
+            document.getElementById('char-count').innerText = `${val.length} Chars`;
+            const words = val.trim().split(/\s+/).length;
+            document.getElementById('word-count').innerText = `${val ? words : 0} Words`;
+        }
+
+        function pasteFromClipboard() {
+            navigator.clipboard.readText()
+                .then(text => document.getElementById('setup-input').value = text)
+                .catch(() => alert('请手动粘贴'));
+        }
+
+        function toggleTimer() {
+            if (state.timer.running) {
+                clearInterval(state.timer.id);
+                state.timer.running = false;
+                document.getElementById('timer-icon').className = 'fa-solid fa-play';
+            } else {
+                if (!state.timer.start) state.timer.start = Date.now();
+                state.timer.running = true;
+                document.getElementById('timer-icon').className = 'fa-solid fa-pause';
+                state.timer.id = setInterval(() => {
+                    const now = Date.now();
+                    let diff = state.timer.type === 'up' ? now - state.timer.start : (25 * 60 * 1000) - (now - state.timer.start);
+                    if (diff <= 0 && state.timer.type === 'down') { resetTimer(); return alert("Time's up!"); }
+                    const m = Math.floor(Math.abs(diff) / 60000);
+                    const s = Math.floor((Math.abs(diff) % 60000) / 1000);
+                    const timeStr = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                    document.getElementById('time-val').innerText = timeStr;
+                    document.getElementById('mobile-timer').innerText = timeStr;
+                }, 1000);
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(state.timer.id);
+            state.timer.running = false;
+            state.timer.start = null;
+            document.getElementById('time-val').innerText = '00:00';
+            document.getElementById('mobile-timer').innerText = '00:00';
+            document.getElementById('timer-icon').className = 'fa-solid fa-play';
+        }
+
+        function toggleModal(id) {
+            const el = document.getElementById(id);
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                setTimeout(() => { el.classList.remove('opacity-0'); el.querySelector('div').classList.remove('scale-95'); }, 10);
+            } else {
+                el.classList.add('opacity-0');
+                el.querySelector('div').classList.add('scale-95');
+                setTimeout(() => el.classList.add('hidden'), 200);
+            }
+        }
+
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+                document.getElementById('theme-icon').className = 'fa-regular fa-lightbulb text-lg';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+                document.getElementById('theme-icon').className = 'fa-solid fa-lightbulb text-lg';
+            }
+        }
+    </script>
+</body>
+</html>
