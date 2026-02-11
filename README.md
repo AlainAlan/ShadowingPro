@@ -3,9 +3,13 @@
 [![Built with Gemini Pro](https://img.shields.io/badge/AI-Gemini%20Pro-blue?style=flat-square&logo=google-gemini)](https://deepmind.google/technologies/gemini/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
+
+
 **Shadowing Pro** is a lightweight, single-file web application designed for language learners to practice writing and memory through "Shadowing" (Echo Method). It helps you internalize sentence structures by observing, recalling, and rewriting text, with instant AI feedback.
 
 **Shadowing Pro** 是一个轻量级的单文件网页应用，专为语言学习者设计。通过“影子跟读/跟写”法（观察 -> 记忆 -> 复写 -> 对比），帮助您内化语言结构，并提供即时的 AI 纠错反馈。
+
+🔗 **Live Demo:** [https://alainalan.github.io/ShadowingPro/](https://alainalan.github.io/ShadowingPro/)
 
 > **Note:** This project was conceptually designed and entirely coded with the assistance of **Google Gemini Pro**.
 >
